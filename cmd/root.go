@@ -84,7 +84,7 @@ func (r Receiver) ReceiveAndReply(ctx context.Context, event cloudevents.Event) 
 	}
 
 	// Do not acknowledge events with wrong source.
-	if event.Source() != newFileEventType {
+	if event.Source() != r.Source {
 		r.Logger.Warn("wrong event source", zap.String("expected", r.Source), zap.String("actual", event.Source()))
 		return cloudevents.NewReceipt(false, "wrong event source: expected %s but was %s", r.Source, event.Source())
 	}
