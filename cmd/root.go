@@ -71,22 +71,26 @@ func init() {
 type Receiver struct {
 	Type   string
 	Source string
+	Logger *zap.Logger
 }
 
 // ReceiveAndReply is invoked whenever we receive an event.
 func (r Receiver) ReceiveAndReply(ctx context.Context, event cloudevents.Event) cloudevents.Result {
 	// Do not acknowledge events with wrong type.
 	if event.Type() != r.Type {
+		r.Logger.Warn("wrong event type", zap.String("expected", r.Type), zap.String("actual", event.Type()))
 		return cloudevents.NewReceipt(false, "wrong event type: expected %s but was %s", r.Type, event.Type())
 	}
 
 	// Do not acknowledge events with wrong source.
 	if event.Source() != newFileEventType {
-		return cloudevents.NewReceipt(false, "wrong event source: expected %s but was %s", r.Type, event.Type())
+		r.Logger.Warn("wrong event source", zap.String("expected", r.Source), zap.String("actual", event.Source()))
+		return cloudevents.NewReceipt(false, "wrong event source: expected %s but was %s", r.Source, event.Source())
 	}
 
 	var evt NewFileEvent
 	if err := event.DataAs(&evt); err != nil {
+		r.Logger.Error("data conversion failed", zap.Error(err))
 		return cloudevents.NewHTTPResult(http.StatusBadRequest, "failed to convert data: %s", err)
 	}
 
