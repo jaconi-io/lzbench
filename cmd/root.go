@@ -47,6 +47,7 @@ or lzturbo are not included).`,
 		receiver := Receiver{
 			Type:   newFileEventType,
 			Source: fmt.Sprintf("jaconi.io/prepper/%s", hostname),
+			Logger: log,
 		}
 
 		log.Info("starting receiver on :8080")
