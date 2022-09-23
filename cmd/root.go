@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"os"
+	"strings"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/spf13/cobra"
@@ -39,14 +39,9 @@ or lzturbo are not included).`,
 			return fmt.Errorf("failed to create new CloudEvent client: %w", err)
 		}
 
-		hostname, err := os.Hostname()
-		if err != nil {
-			return fmt.Errorf("failed to determine hostname: %w", err)
-		}
-
 		receiver := Receiver{
 			Type:   newFileEventType,
-			Source: fmt.Sprintf("jaconi.io/prepper/%s", hostname),
+			Source: fmt.Sprintf("jaconi.io/prepper/%s", viper.GetString("node-name")),
 			Logger: log,
 		}
 
@@ -64,7 +59,12 @@ func Execute() {
 }
 
 func init() {
-	cobra.OnInitialize(viper.AutomaticEnv)
+	cobra.OnInitialize(func() {
+		viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
+		viper.AutomaticEnv()
+	})
+
+	rootCmd.Flags().StringP("node-name", "n", "", "the name of the node prepper is running on")
 
 	viper.BindPFlags(rootCmd.Flags())
 }
