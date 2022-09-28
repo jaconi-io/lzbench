@@ -3,9 +3,9 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"strings"
 
+	cenats "github.com/cloudevents/sdk-go/protocol/nats/v2"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -17,6 +17,11 @@ const newFileEventType = "io.jaconi.prepper.file.new"
 type NewFileEvent struct {
 	Path string `json:"path"`
 }
+
+const (
+	flagNodeName = "node-name"
+	flagQueue    = "queue"
+)
 
 var rootCmd = &cobra.Command{
 	Use:   "lzbench",
@@ -34,18 +39,20 @@ or lzturbo are not included).`,
 			return fmt.Errorf("log configuration failed: %w", err)
 		}
 
-		client, err := cloudevents.NewClientHTTP()
+		p, err := cenats.NewConsumer(viper.GetString(flagQueue), "newfile."+viper.GetString(flagNodeName), cenats.NatsOptions())
+
+		client, err := cloudevents.NewClient(p)
 		if err != nil {
 			return fmt.Errorf("failed to create new CloudEvent client: %w", err)
 		}
 
 		receiver := Receiver{
 			Type:   newFileEventType,
-			Source: fmt.Sprintf("jaconi.io/prepper/%s", viper.GetString("node-name")),
+			Source: fmt.Sprintf("jaconi.io/prepper/%s", viper.GetString(flagNodeName)),
 			Logger: log,
 		}
 
-		log.Info("starting receiver on :8080")
+		log.Info("starting receiver")
 		if err := client.StartReceiver(cmd.Context(), receiver.ReceiveAndReply); err != nil {
 			return fmt.Errorf("failed to start receiver: %w", err)
 		}
@@ -64,7 +71,8 @@ func init() {
 		viper.AutomaticEnv()
 	})
 
-	rootCmd.Flags().StringP("node-name", "n", "", "the name of the node prepper is running on")
+	rootCmd.Flags().StringP(flagNodeName, "n", "", "the name of the node prepper is running on")
+	rootCmd.Flags().StringP(flagQueue, "q", "", "the name of the queue")
 
 	viper.BindPFlags(rootCmd.Flags())
 }
@@ -92,7 +100,7 @@ func (r Receiver) ReceiveAndReply(ctx context.Context, event cloudevents.Event) 
 	var evt NewFileEvent
 	if err := event.DataAs(&evt); err != nil {
 		r.Logger.Error("data conversion failed", zap.Error(err))
-		return cloudevents.NewHTTPResult(http.StatusBadRequest, "failed to convert data: %s", err)
+		return cloudevents.NewReceipt(false, "failed to convert data: %s", err)
 	}
 
 	// TODO: Actually do something.
